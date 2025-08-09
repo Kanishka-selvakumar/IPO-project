@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPO Pattern Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      height: 100vh;
+      color: white;
+      background-image: url('https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1470&q=80');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      z-index: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: -1;
+    }
+
+    .container {
+      max-width: 700px;
+      width: 90%;
+      margin: auto;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+      color: white;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white font-inter">
+  <div class="container mx-auto p-8 rounded-2xl shadow-2xl backdrop-blur-md bg-white bg-opacity-15">
+    
+    <!-- Input Slide -->
+    <div id="input-slide">
+        <h1 class="text-3xl font-bold mb-6 text-yellow-300">IPO Pattern Analyzer 📊</h1>
+
+        <div class="space-y-4">
+          <div class="flex flex-col sm:flex-row justify-between items-center bg-gray-800 bg-opacity-40 p-3 rounded-xl">
+            <label for="gmp" class="font-semibold text-lg text-left sm:w-1/2">GMP:</label>
+            <input type="number" id="gmp" placeholder="Eg: 70" class="w-full sm:w-1/2 mt-2 sm:mt-0 p-2 rounded-lg bg-gray-700 bg-opacity-50 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-300">
+          </div>
+          <div class="flex flex-col sm:flex-row justify-between items-center bg-gray-800 bg-opacity-40 p-3 rounded-xl">
+            <label for="retail" class="font-semibold text-lg text-left sm:w-1/2">Retail Subscription:</label>
+            <input type="number" id="retail" placeholder="Eg: 12" class="w-full sm:w-1/2 mt-2 sm:mt-0 p-2 rounded-lg bg-gray-700 bg-opacity-50 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-300">
+          </div>
+          <div class="flex flex-col sm:flex-row justify-between items-center bg-gray-800 bg-opacity-40 p-3 rounded-xl">
+            <label for="qib" class="font-semibold text-lg text-left sm:w-1/2">QIB Subscription:</label>
+            <input type="number" id="qib" placeholder="Eg: 8" class="w-full sm:w-1/2 mt-2 sm:mt-0 p-2 rounded-lg bg-gray-700 bg-opacity-50 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-300">
+          </div>
+        </div>
+        
+        <button onclick="analyzePattern()" class="mt-8 w-full py-3 px-6 bg-yellow-500 text-gray-900 font-bold rounded-xl shadow-lg hover:bg-yellow-400 transform hover:scale-105 transition-all duration-300">Analyze Pattern</button>
+    </div>
+
+    <!-- Result Slide (Initially hidden) -->
+    <div id="result-slide" class="hidden">
+      <h1 class="text-3xl font-bold mb-6 text-yellow-300">Analysis Results</h1>
+      <div id="result" class="text-xl font-bold p-3 rounded-xl bg-gray-800 bg-opacity-40 min-h-[50px] flex items-center justify-center"></div>
+      <div id="suggestions" class="mt-4 text-base text-left p-3 rounded-xl bg-gray-800 bg-opacity-40"></div>
+      
+      <!-- Graph Container: கிராஃப் ஸ்க்ரோல் இல்லாமல் முழுமையாகத் தெரியுமாறு உயரம் கட்டுப்படுத்தப்பட்டுள்ளது. (The graph's height has been controlled to be fully visible without scrolling.) -->
+      <div class="h-96 mt-8 bg-gray-800 bg-opacity-50 p-4 rounded-xl">
+        <canvas id="patternChart" class="w-full h-full"></canvas>
+      </div>
+
+      <button onclick="goBack()" class="mt-8 w-full py-3 px-6 bg-gray-600 text-white font-bold rounded-xl shadow-lg hover:bg-gray-500 transform hover:scale-105 transition-all duration-300">Back</button>
+    </div>
+
+  </div>
+
+  <script>
+    let myChart = null;
+
+    function analyzePattern() {
+      const gmp = parseFloat(document.getElementById("gmp").value);
+      const retail = parseFloat(document.getElementById("retail").value);
+      const qib = parseFloat(document.getElementById("qib").value);
+
+      const resultElement = document.getElementById("result");
+      const suggestionsElement = document.getElementById("suggestions");
+      const inputSlide = document.getElementById("input-slide");
+      const resultSlide = document.getElementById("result-slide");
+
+      // Input validation
+      if (isNaN(gmp) || isNaN(retail) || isNaN(qib) || gmp < 0 || retail < 0 || qib < 0) {
+        resultElement.innerText = "Please enter valid, non-negative numbers.";
+        resultElement.style.color = "#ff6347";
+        suggestionsElement.innerText = ""; // Clear suggestions
+        if (myChart) {
+          myChart.destroy();
+          myChart = null;
+        }
+        return;
+      }
+      
+      // New logic: Weighted scoring system
+      let score = 0;
+      let resultText = "";
+      let resultColor = "#fff";
+      let resultSuggestions = "";
+
+      // GMP: Higher GMP indicates higher demand
+      if (gmp > 70) score += 40;
+      else if (gmp > 40) score += 30;
+      else if (gmp > 10) score += 15;
+
+      // QIB Subscription: High QIB subscription is a strong indicator
+      if (qib > 10) score += 40;
+      else if (qib > 5) score += 20;
+      else if (qib > 1) score += 5;
+
+      // Retail Subscription: High retail interest is also a positive sign
+      if (retail > 15) score += 20;
+      else if (retail > 5) score += 10;
+      else if (retail > 1) score += 2;
+
+      // Determine result and suggestions based on score
+      if (score >= 80) {
+        resultText = "🔥 Highly Attractive IPO! Score: " + score;
+        resultColor = "#4caf50";
+        resultSuggestions = "1. This IPO shows strong potential based on current metrics.\n2. The high GMP and subscription rates are very positive signs.\n3. Consider a thoughtful investment strategy.\n4. Always stay updated with market news.";
+      } else if (score >= 50) {
+        resultText = "👍 Moderately Attractive IPO. Score: " + score;
+        resultColor = "#2196f3";
+        resultSuggestions = "1. This IPO has mixed signals, indicating moderate potential.\n2. Retail interest is good, but institutional support could be stronger.\n3. Conduct deeper research into the company's financials and sector outlook.\n4. Consider diversifying your portfolio to manage risk.";
+      } else if (score >= 20) {
+        resultText = "⚠️ Potentially Risky IPO. Score: " + score;
+        resultColor = "#ffeb3b";
+        resultSuggestions = "1. The IPO's indicators suggest a high-risk investment.\n2. Look for other positive factors, like a strong company background or a favorable sector.\n3. A high retail subscription can sometimes compensate for low institutional interest.\n4. Proceed with extreme caution and never invest more than you can afford to lose.";
+      } else {
+        resultText = "❌ High-Risk IPO. Score: " + score;
+        resultColor = "#f44336";
+        resultSuggestions = "1. The IPO's indicators suggest a high-risk investment.\n2. Look for other positive factors, like a strong company background or a favorable sector.\n3. A high retail subscription can sometimes compensate for low institutional interest.\n4. Proceed with extreme caution and never invest more than you can afford to lose.";
+      }
+
+      resultElement.innerText = resultText;
+      resultElement.style.color = resultColor;
+      suggestionsElement.innerText = resultSuggestions;
+      
+      drawChart(gmp, retail, qib);
+
+      // Transition to the result slide
+      inputSlide.classList.add('hidden');
+      resultSlide.classList.remove('hidden');
+    }
+
+    function goBack() {
+      const inputSlide = document.getElementById("input-slide");
+      const resultSlide = document.getElementById("result-slide");
+      
+      // Transition back to the input slide
+      resultSlide.classList.add('hidden');
+      inputSlide.classList.remove('hidden');
+    }
+
+    function drawChart(gmp, retail, qib) {
+      if (myChart) {
+        myChart.destroy();
+      }
+
+      const ctx = document.getElementById('patternChart').getContext('2d');
+      
+      myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['GMP', 'Retail Sub', 'QIB Sub'],
+          datasets: [{
+            label: 'IPO Indicators',
+            data: [gmp, retail, qib],
+            backgroundColor: ['#ffeb3b', '#2196f3', '#4caf50'],
+            borderColor: ['#ffeb3b', '#2196f3', '#4caf50'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: 'rgba(255, 255, 255, 0.2)'
+              },
+              ticks: {
+                color: 'white'
+              }
+            },
+            x: {
+              grid: {
+                color: 'rgba(255, 255, 255, 0.2)'
+              },
+              ticks: {
+                color: 'white'
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: 'white'
+              }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
